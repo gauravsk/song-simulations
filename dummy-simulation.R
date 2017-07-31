@@ -69,3 +69,5 @@ for (current_pc in 1:3){
 }
 corrs
 
+#yay working together
+
