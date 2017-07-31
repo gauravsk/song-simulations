@@ -48,26 +48,34 @@ scores_from_full <- song_pca_full$S
 # subset full dataframe and get pc scores from 2 inds/species -----
 
 # the goal now is to make a smaller version of simulated_df which has just 200 rows - 2 per species
+# and then repeat it 1000 times
 
-
-simulated_df_subset <- simulated_df %>% group_by(species) %>% sample_n(2)
-
-simulated_df_subset_ave <- simulated_df_subset %>% group_by(species) %>% summarise_all(funs(mean)) %>% select(-ind) %>% ungroup() %>% as.data.frame() %>% column_to_rownames("species")
-
-simulated_df_subset_ave <- scale(simulated_df_subset_ave)
-song_pca_sub <- phyl.pca(tree, simulated_df_subset_ave, method = "BM", mode = "cor")
-biplot(song_pca_sub)
-
-# extract the PC scores - these will be the "true" PC scores that we are "trying" to get 
-scores_from_sub <- song_pca_sub$S
-
-par(mfrow = c(1,3))
-corrs <- numeric(3)
-for (current_pc in 1:3){
-  plot(scores_from_full[,current_pc]~scores_from_sub[,current_pc])
-  corrs[current_pc] <- cor(scores_from_full[,current_pc], scores_from_sub[,current_pc])
+iter <- 1000
+numPCs <- 3
+corrs_mat <- matrix(NA,nrow=iter,ncol=numPCs)
+  
+for(i in 1:iter){
+  
+  simulated_df_subset_ave <- simulated_df %>% group_by(species) %>% sample_n(2) %>% #subset the data by taking two exemplars per species
+    group_by(species) %>% summarise_all(funs(mean)) %>% select(-ind) %>% ungroup() %>% #get the species averages of the parameters
+    as.data.frame() %>% column_to_rownames("species") %>% scale() #or select(-othercolumns)
+  
+  #do the phylogenetic pca on subsetted df
+  song_pca_sub <- phyl.pca(tree, simulated_df_subset_ave, method = "BM", mode = "cor") 
+  biplot(song_pca_sub)
+  
+  # extract the PC scores - these will be the "true" PC scores that we are "trying" to get 
+  scores_from_sub <- song_pca_sub$S
+  
+  #calculate correlations between PC scores from subset and from full df
+  corrs <- numeric(numPCs)
+  for (current_pc in 1:numPCs){
+    #plot(scores_from_full[,current_pc]~scores_from_sub[,current_pc])
+    corrs[current_pc] <- cor(scores_from_full[,current_pc], scores_from_sub[,current_pc])
+  }
+  corrs_mat[i,] <- corrs #save them into the matrix!
 }
-corrs
 
-#yay working together
-
+abs_corrs_mat <- abs(corrs_mat)
+par(mfrow = c(1,numPCs))
+apply(abs_corrs_mat, 2, hist)
